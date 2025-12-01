@@ -39,7 +39,7 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, handleLogout }) => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
+//test commit
   // Role + user from localStorage
   useEffect(() => {
     const storedRole = localStorage.getItem("role");
