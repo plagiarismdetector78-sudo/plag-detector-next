@@ -88,7 +88,7 @@ export default function MeetingPage() {
     setUserRole(role);
 
     // Connect to the signaling server
-    socket = io("https://plag-detector-next.onrender.com");
+    socket = io("https://signaling-server-main.onrender.com");
 
     const pc = new RTCPeerConnection({
       iceServers: [
