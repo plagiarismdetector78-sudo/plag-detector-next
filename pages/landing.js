@@ -80,7 +80,7 @@ export default function LandingPage() {
   return (
     <>
       <Head>
-        <title>Skill Scanner - AI-Powered Interview Platform</title>
+        <title>Skill Scanner - AI-Powered Interview </title>
         <meta name="description" content="Revolutionize your hiring process with AI-powered plagiarism detection, blockchain security, and real-time video interviews." />
         <meta name="keywords" content="AI interviews, plagiarism detection, blockchain hiring, video interviews, recruitment platform" />
         <meta property="og:title" content="Skill Scanner - AI-Powered Interview Platform" />
