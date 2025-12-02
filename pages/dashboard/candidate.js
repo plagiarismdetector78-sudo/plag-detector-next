@@ -104,16 +104,30 @@ const CandidateDashboard = () => {
   }, []);
 
   // fetch profile for fullname
-  const fetchProfile = async (uid) => {
-    try {
-      const res = await fetch(`/api/get-profile?userId=${uid}`);
-      const json = await res.json();
-      if (json.success) setFullName(json.profile.fullName || 'Candidate');
-    } catch (err) {
-      console.error('Failed to fetch profile:', err);
-      setFullName('Candidate');
+const fetchProfile = async (uid) => {
+  try {
+    const res = await fetch(`/api/get-profile?userId=${uid}`);
+    const json = await res.json();
+
+    if (json.success && json.profile) {
+      const p = json.profile;
+
+      // ALWAYS SAFE — guarantees no undefined text appears
+      const safeName =
+        p.fullName?.trim() ||
+        `${p.firstName || ""} ${p.lastName || ""}`.trim() ||
+        "Candidate";
+
+      setFullName(safeName);
+    } else {
+      setFullName("Candidate");
     }
-  };
+  } catch (err) {
+    console.error("Failed to fetch profile:", err);
+    setFullName("Candidate");
+  }
+};
+
 
   const handleProfileComplete = () => {
     setProfileComplete(true);

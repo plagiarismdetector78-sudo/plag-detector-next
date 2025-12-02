@@ -18,6 +18,21 @@ function InterviewerDashboard() {
   const [isMobile, setIsMobile] = useState(false);
   const [activeTab, setActiveTab] = useState('scheduled');
   const [matchingEngine, setMatchingEngine] = useState('basic');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editModalOpen, setEditModalOpen] = useState(false);
+const [interviewBeingEdited, setInterviewBeingEdited] = useState(null);
+const [editDate, setEditDate] = useState("");
+const [editTime, setEditTime] = useState("");
+
+const [searchResult, setSearchResult] = useState(null);
+// 🔥 Schedule Modal States
+const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+const [selectedCandidate, setSelectedCandidate] = useState(null);
+const [selectedDate, setSelectedDate] = useState("");
+const [selectedTime, setSelectedTime] = useState("");
+
+
+  
   const [stats, setStats] = useState({
     total: 0,
     upcoming: 0,
@@ -37,6 +52,11 @@ function InterviewerDashboard() {
     const savedState = localStorage.getItem("sidebarCollapsed");
     if (savedState === "true") setSidebarCollapsed(true);
     fetchScheduledInterviews();
+    // 🔥 Handle Schedule Interview
+
+
+ 
+
 
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
@@ -77,6 +97,18 @@ function InterviewerDashboard() {
     router.push("/login");
   };
 
+  const handleOpenCandidates = async () => {
+  // Open modal (desktop) or tab (mobile)
+  setShowCandidatesModal(true);
+  setSearchQuery("");
+  setSearchResult(null);
+
+  // Only fetch candidates list, do NOT auto-show full list
+  if (candidates.length === 0) {
+    await fetchCandidates();
+  }
+};
+
   const fetchCandidates = async () => {
     setLoadingCandidates(true);
     try {
@@ -102,20 +134,28 @@ function InterviewerDashboard() {
     }
   };
 
-  const fetchScheduledInterviews = async () => {
-    setLoadingScheduled(true);
-    try {
-      const res = await fetch("/api/get-scheduled-interviews");
-      const data = await res.json();
-      if (data.success) setScheduledInterviews(data.interviews || []);
-      else alert("Error loading scheduled interviews: " + data.error);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to load scheduled interviews.");
-    } finally {
-      setLoadingScheduled(false);
+const fetchScheduledInterviews = async () => {
+  setLoadingScheduled(true);
+  try {
+    const interviewerId = localStorage.getItem("userId");
+
+    const res = await fetch(`/api/get-scheduled-interviews?interviewerId=${interviewerId}`);
+    const data = await res.json();
+
+    if (data.success) {
+      setScheduledInterviews(data.interviews || []);
+    } else {
+      alert("Error loading scheduled interviews: " + data.error);
     }
-  };
+  } catch (err) {
+    console.error(err);
+    alert("Failed to load scheduled interviews.");
+  } finally {
+    setLoadingScheduled(false);
+  }
+};
+
+  
 
   const saveInterview = async (candidate, index) => {
     const dt = scheduleDates[index];
@@ -166,6 +206,14 @@ function InterviewerDashboard() {
     navigator.clipboard.writeText(meetingLink);
     alert('Meeting link copied to clipboard!');
   };
+  // 🔥 Open Schedule Modal
+const openScheduleModal = (candidate) => {
+  setSelectedCandidate(candidate);
+  setSelectedDate("");
+  setSelectedTime("");
+  setScheduleModalOpen(true);
+};
+
 
   // Format date for display
   const formatDate = (dateString) => {
@@ -210,16 +258,118 @@ function InterviewerDashboard() {
           </span>
         );
       default:
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
-            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Standard Matching
-          </span>
-        );
+        // return (
+          // <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
+            // <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              // <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            // </svg>
+          {/* Standard Matching  */}
+          // </span>
+        // );
     }
   };
+  // 🔥 Missing Function — Add This
+const handleScheduleInterview = async () => {
+  if (!selectedCandidate) return alert("No candidate selected.");
+  if (!selectedDate || !selectedTime) return alert("Select both date and time.");
+
+  const scheduledAt = new Date(`${selectedDate}T${selectedTime}`);
+
+  try {
+    const res = await fetch("/api/schedule-interview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        candidateId: selectedCandidate.id,                // ✅ FIXED
+        interviewerId: localStorage.getItem("userId"),   // ✅ FIXED
+        scheduledAt: scheduledAt.toISOString(),          // ✅ VALID
+        createRoom: true
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      alert("Interview scheduled successfully!");
+      setScheduleModalOpen(false);
+      fetchScheduledInterviews();
+    } else {
+      alert("Failed: " + (data.error || "Unknown error"));
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Network error while scheduling interview");
+  }
+};
+
+const deleteInterview = async (id) => {
+  if (!confirm("Are you sure you want to delete this interview?")) return;
+
+  try {
+   const res = await fetch(`/api/delete-interview?id=${id}`, {
+  method: "DELETE"
+});
+
+
+    const data = await res.json();
+
+    if (!data.success) {
+      throw new Error(data.error || "Failed to delete interview");
+    }
+
+    // Remove on UI
+    setScheduledInterviews((prev) => prev.filter((i) => i.id !== id));
+
+    alert("Interview deleted successfully!");
+  } catch (error) {
+    console.error("Delete failed:", error);
+    alert("Error deleting interview.");
+  }
+};
+const openEditModal = (interview) => {
+  setInterviewBeingEdited(interview);
+
+  // Pre-fill modal fields from existing interview
+  const iso = interview.scheduledAt ? new Date(interview.scheduledAt) : null;
+
+  if (iso) {
+    setEditDate(iso.toISOString().split("T")[0]);
+    setEditTime(iso.toISOString().split("T")[1].substring(0, 5));
+  }
+
+  setEditModalOpen(true);
+};
+const updateInterview = async () => {
+  if (!editDate || !editTime) return alert("Select date and time");
+
+  const scheduledAt = new Date(`${editDate}T${editTime}`);
+
+  try {
+    const res = await fetch("/api/update-interview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        interviewId: interviewBeingEdited.id,
+        scheduledAt: scheduledAt.toISOString()
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!data.success) {
+      return alert("Failed to update interview.");
+    }
+
+    alert("Interview updated successfully!");
+    setEditModalOpen(false);
+    fetchScheduledInterviews(); // refresh table
+  } catch (err) {
+    console.error(err);
+    alert("Error updating interview");
+  }
+};
+
+
 
   return (
     <>
@@ -255,20 +405,21 @@ function InterviewerDashboard() {
 
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-3">
-                <button 
-                  onClick={fetchCandidates}
-                  disabled={loadingCandidates}
-                  className="flex items-center space-x-2 bg-white/10 backdrop-blur-lg border border-white/20 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-white/20 transition-all duration-300 disabled:opacity-50"
-                >
-                  {loadingCandidates ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                    </svg>
-                  )}
-                  <span>{loadingCandidates ? 'Loading...' : 'Candidates'}</span>
-                </button>
+               <button 
+  onClick={handleOpenCandidates}
+  disabled={loadingCandidates}
+  className="flex items-center space-x-2 bg-white/10 backdrop-blur-lg border border-white/20 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-white/20 transition-all duration-300 disabled:opacity-50"
+>
+  {loadingCandidates ? (
+    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+  ) : (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+    </svg>
+  )}
+  <span>{loadingCandidates ? 'Loading...' : 'Candidates'}</span>
+</button>
+
                 
                 <button 
                   onClick={fetchScheduledInterviews}
@@ -495,19 +646,35 @@ function InterviewerDashboard() {
                                     {interview.status || 'Scheduled'}
                                   </span>
                                 </td>
-                                <td className="px-4 py-3">
-                                  {interview.meetingRoomId && (
-                                    <button
-                                      onClick={() => router.push(`/meeting/${interview.meetingRoomId}`)}
-                                      className="flex items-center space-x-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-300 transform hover:scale-105"
-                                    >
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                      </svg>
-                                      <span>Join</span>
-                                    </button>
-                                  )}
-                                </td>
+                              <td className="px-4 py-3 space-x-2 flex items-center">
+
+  {/* JOIN BUTTON */}
+  {interview.meetingRoomId && (
+    <button
+      onClick={() => router.push(`/meeting/${interview.meetingRoomId}`)}
+      className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1.5 rounded-xl text-xs font-medium hover:scale-105 transition"
+    >
+      Join
+    </button>
+  )}
+
+  {/* EDIT BUTTON */}
+  <button
+    onClick={() => openEditModal(interview)}
+    className="bg-blue-500/20 text-blue-300 px-3 py-1.5 border border-blue-500/30 rounded-xl text-xs hover:bg-blue-500/30 transition"
+  >
+    Edit
+  </button>
+
+  {/* DELETE BUTTON */}
+  <button
+    onClick={() => deleteInterview(interview.id)}
+    className="bg-red-500/20 text-red-300 px-3 py-1.5 border border-red-500/30 rounded-xl text-xs hover:bg-red-500/30 transition"
+  >
+    Delete
+  </button>
+</td>
+
                               </tr>
                             );
                           })}
@@ -520,6 +687,7 @@ function InterviewerDashboard() {
                       {scheduledInterviews.map((interview) => {
                         const formattedDate = formatDate(interview.scheduledAt);
                         return (
+                          
                           <div key={interview.id} className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 hover:border-purple-500/30 transition-all duration-300">
                             <div className="flex justify-between items-start mb-3">
                               <div className="flex-1">
@@ -716,6 +884,49 @@ function InterviewerDashboard() {
             )}
           </div>
         </div>
+        {/* GLOBAL EDIT MODAL */}
+{editModalOpen && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+    <div className="bg-gray-900 w-full max-w-md rounded-2xl p-6 border border-white/10 relative">
+
+      <button
+        className="absolute top-3 right-3 text-gray-400 hover:text-white"
+        onClick={() => setEditModalOpen(false)}
+      >
+        ✕
+      </button>
+
+      <h2 className="text-xl font-semibold text-white mb-4">
+        Edit Interview Schedule
+      </h2>
+
+      <label className="text-gray-300 text-sm">Select Date</label>
+      <input
+        type="date"
+        value={editDate}
+        onChange={(e) => setEditDate(e.target.value)}
+        className="w-full mt-2 p-3 rounded-xl bg-white/10 text-white border border-white/20"
+      />
+
+      <label className="text-gray-300 text-sm mt-4 block">Select Time</label>
+      <input
+        type="time"
+        value={editTime}
+        onChange={(e) => setEditTime(e.target.value)}
+        className="w-full mt-2 p-3 rounded-xl bg-white/10 text-white border border-white/20"
+      />
+
+      <button
+        onClick={updateInterview}
+        className="w-full mt-6 bg-gradient-to-r from-blue-500 to-blue-700 py-3 rounded-xl text-white font-semibold hover:scale-105 transition"
+      >
+        Save Changes
+      </button>
+
+    </div>
+  </div>
+)}
+
 
         {/* Candidates Modal (Desktop) */}
         {showCandidatesModal && !isMobile && (
@@ -735,169 +946,162 @@ function InterviewerDashboard() {
               className="relative backdrop-blur-xl bg-gray-800/95 rounded-3xl border border-white/10 shadow-2xl w-full max-w-6xl p-6 my-8 overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Header */}
-              <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
-                    <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 id="candidates-title" className="text-xl font-semibold text-white">AI-Matched Candidates</h3>
-                    <div className="flex items-center space-x-2">
-                      <p className="text-gray-400 text-sm">Candidates sorted by compatibility with your profile</p>
-                      {getAIStatusBadge()}
-                    </div>
-                  </div>
-                </div>
+             {/* Header Row (icon, title, search, close btn all aligned) */}
+<div className="flex justify-between items-center mb-6 w-full">
 
-                {/* Close button */}
-                <button
-                  onClick={() => setShowCandidatesModal(false)}
-                  className="text-gray-400 hover:text-white p-2 rounded-xl hover:bg-white/10 transition-colors"
-                  aria-label="Close candidates modal"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+  {/* Left: Icon + Title */}
+  <div className="flex items-center space-x-3">
+    <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
+      <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+      </svg>
+    </div>
 
-              {/* Body: scrollable list */}
-              <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-                {candidates.length === 0 ? (
-                  <div className="text-center py-8">
-                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                    </svg>
-                    <p className="text-gray-400">No candidates found.</p>
-                  </div>
-                ) : (
-                  candidates.map((candidate, idx) => (
-                    <div key={candidate.id} className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:border-purple-500/30 transition-all duration-300">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <h4 className="font-semibold text-white text-lg truncate">
-                              {candidate.full_name || candidate.email}
-                            </h4>
-                            {candidate.matchScore && (
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${candidate.compatibilityColor}`}>
-                                {candidate.compatibilityLevel} Match ({candidate.matchScore}/10)
-                              </span>
-                            )}
-                          </div>
-                          
-                          <div className="text-sm text-gray-400 space-y-1">
-                            <div className="flex items-center space-x-2">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                              </svg>
-                              <span>{candidate.email}</span>
-                            </div>
-                            {candidate.phone && candidate.phone !== 'N/A' && (
-                              <div className="flex items-center space-x-2">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                </svg>
-                                <span>{candidate.phone}</span>
-                              </div>
-                            )}
-                            {candidate.qualification && (
-                              <div className="flex items-center space-x-2">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-                                </svg>
-                                <span>{candidate.qualification}</span>
-                              </div>
-                            )}
-                          </div>
+    <div>
+      <h3 id="candidates-title" className="text-xl font-semibold text-white">
+        SkilScanner Registered User's
+      </h3>
+    </div>
+  </div>
 
-                          {/* Matching Details */}
-                          {candidate.matchingAreas && (
-                            <div className="mt-3 space-y-2">
-                              <div className="flex items-start space-x-2">
-                                <svg className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <div>
-                                  <p className="text-green-300 text-sm font-medium">Matching Areas:</p>
-                                  <p className="text-green-200 text-xs">{candidate.matchingAreas.join(', ')}</p>
-                                </div>
-                              </div>
-                              
-                              {candidate.interviewFocus && (
-                                <div className="flex items-start space-x-2">
-                                  <svg className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                  </svg>
-                                  <div>
-                                    <p className="text-blue-300 text-sm font-medium">Suggested Focus:</p>
-                                    <p className="text-blue-200 text-xs">{candidate.interviewFocus.join(', ')}</p>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
+  {/* Center: Search bar + button */}
+  <div className="flex items-center space-x-3 flex-1 px-6">
+    <input
+      type="text"
+      placeholder="Search candidate by email..."
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500"
+    />
 
-                        <div className="ml-4 flex-shrink-0">
-                          {/* Schedule form */}
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="datetime-local"
-                              value={scheduleDates[idx] || ""}
-                              onChange={(e) => setScheduleDates(prev => ({ ...prev, [idx]: e.target.value }))}
-                              className="bg-white/10 border border-white/20 p-2 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent backdrop-blur-sm"
-                            />
+    <button
+      onClick={() => {
+        const match = candidates.find(c =>
+          c.email.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+        setSearchResult(match || "not_found");
+      }}
+      className="bg-gradient-to-r from-purple-500 to-pink-500 px-5 py-2.5 rounded-xl text-white font-medium hover:scale-105 transition"
+    >
+      Search
+    </button>
+  </div>
 
-                            <div className="flex items-center gap-2">
-                              <label className="flex items-center gap-2 text-sm text-gray-300">
-                                <input
-                                  type="checkbox"
-                                  checked={!!(meetingRoomInputs[idx]?.createRoom)}
-                                  onChange={(e) => setMeetingRoomInputs(prev => ({ ...prev, [idx]: { ...(prev[idx]||{}), createRoom: e.target.checked } }))}
-                                  className="rounded border-white/20 bg-white/10 text-purple-500 focus:ring-purple-500"
-                                />
-                                <span>Create Room</span>
-                              </label>
+  {/* Right: Close button */}
+  <button
+    onClick={() => setShowCandidatesModal(false)}
+    className="text-gray-400 hover:text-white p-2 rounded-xl hover:bg-white/10 transition"
+    aria-label="Close candidates modal"
+  >
+    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  </button>
 
-                              <input
-                                type="text"
-                                placeholder="Or enter room id"
-                                value={(meetingRoomInputs[idx]?.meetingRoomId) || ""}
-                                onChange={(e) => setMeetingRoomInputs(prev => ({ ...prev, [idx]: { ...(prev[idx]||{}), meetingRoomId: e.target.value } }))}
-                                className="bg-white/10 border border-white/20 p-2 rounded-xl w-32 text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent backdrop-blur-sm"
-                              />
-                            </div>
+</div>
 
-                            <button
-                              onClick={() => saveInterview(candidate, idx)}
-                              disabled={savingIdx === idx || !scheduleDates[idx]}
-                              className="flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:bg-gray-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 transform hover:scale-105 disabled:transform-none disabled:opacity-50"
-                            >
-                              {savingIdx === idx ? (
-                                <>
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                                  <span>Saving...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  <span>Schedule</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+
+             {/* Body: scrollable list */}
+<div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+
+  {/* Show count only */}
+  <div className="text-gray-300 text-sm mt-4">
+    Total Registered Candidates: <span className="font-semibold text-white">{candidates.length}</span>
+  </div>
+
+  {/* No result yet */}
+  {searchResult === null && (
+    <p className="text-gray-400 text-center py-10">Search a candidate by email to view details.</p>
+  )}
+
+  {/* No candidate found */}
+  {searchResult === "not_found" && (
+    <p className="text-red-400 text-center py-10">No candidate found for this email.</p>
+  )}
+
+  {/* Candidate found */}
+ {searchResult && searchResult !== "not_found" && (
+  <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mt-4 flex justify-between items-start">
+
+    {/* Left: Info */}
+    <div>
+      <h3 className="font-semibold text-white text-lg">
+        {searchResult.full_name || searchResult.email}
+      </h3>
+
+      <p className="text-gray-400 text-sm">{searchResult.email}</p>
+
+      {searchResult.phone && searchResult.phone !== "N/A" && (
+        <p className="text-gray-400 text-sm mt-1">{searchResult.phone}</p>
+      )}
+
+      {searchResult.qualification && (
+        <p className="text-gray-400 text-sm mt-1">{searchResult.qualification}</p>
+      )}
+    </div>
+    {scheduleModalOpen && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+
+    <div className="bg-gray-900 w-full max-w-md rounded-2xl p-6 border border-white/10 relative">
+
+      <button
+        className="absolute top-3 right-3 text-gray-400 hover:text-white"
+        onClick={() => setScheduleModalOpen(false)}
+      >
+        ✕
+      </button>
+
+      <h2 className="text-xl font-semibold text-white mb-4">
+        Schedule Interview
+      </h2>
+
+      {/* DATE PICKER */}
+      <label className="text-gray-300 text-sm">Select Date</label>
+      <input
+        type="date"
+        className="w-full mt-2 p-3 rounded-xl bg-white/10 text-white border border-white/20"
+        value={selectedDate}
+        onChange={(e) => setSelectedDate(e.target.value)}
+      />
+
+      {/* TIME PICKER */}
+      <label className="text-gray-300 text-sm mt-4 block">Select Time</label>
+      <input
+        type="time"
+        className="w-full mt-2 p-3 rounded-xl bg-white/10 text-white border border-white/20"
+        value={selectedTime}
+        onChange={(e) => setSelectedTime(e.target.value)}
+      />
+
+      <button
+        onClick={handleScheduleInterview}
+        className="w-full mt-6 bg-gradient-to-r from-purple-500 to-pink-500 py-3 rounded-xl text-white font-semibold hover:scale-105 transition"
+      >
+        Confirm Schedule
+      </button>
+
+    </div>
+  </div>
+)}
+
+
+    {/* Right: Schedule Button */}
+    <button
+      onClick={() => openScheduleModal(searchResult)}
+      className="bg-gradient-to-r from-purple-500 to-pink-500 px-5 py-2 rounded-xl text-white font-medium hover:scale-105 transition"
+    >
+      Schedule
+    </button>
+{/* GLOBAL SCHEDULE MODAL */}
+
+
+
+  </div>
+)}
+
+
+</div>
+
             </div>
           </div>
         )}

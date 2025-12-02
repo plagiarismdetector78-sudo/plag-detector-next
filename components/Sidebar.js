@@ -4,11 +4,8 @@ import {
   FaHome,
   FaUser,
   FaUserTie,
-  FaUsers,
-  FaClipboardList,
   FaCogs,
   FaSignOutAlt,
-  FaBars,
   FaQuestionCircle,
   FaChartLine,
   FaSearchPlus,
@@ -31,23 +28,21 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, handleLogout }) => {
   const [user, setUser] = useState(null);
   const [scrolled, setScrolled] = useState(false);
 
-  // Scroll detection for shadow effect
+  // Shadow effect on scroll
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 10);
-    };
+    const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-//test commit
-  // Role + user from localStorage
+
+  // Load user/role
   useEffect(() => {
     const storedRole = localStorage.getItem("role");
-    const userName = localStorage.getItem("name");
-    const userEmail = localStorage.getItem("email");
+    const name = localStorage.getItem("name");
+    const email = localStorage.getItem("email");
 
     setRole(storedRole || "candidate");
-    setUser({ name: userName, email: userEmail });
+    setUser({ name, email });
   }, []);
 
   if (!role) {
@@ -55,14 +50,13 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, handleLogout }) => {
       <div
         className={`${
           sidebarCollapsed ? "w-20" : "w-72"
-        } bg-gray-900/95 backdrop-blur-xl border-r border-purple-500/20 min-h-screen fixed left-0 top-16 z-[50] shadow-2xl flex items-center justify-center transition-all duration-500`}
+        } bg-gray-900/95 border-r border-purple-500/20 fixed left-0 top-16 min-h-screen flex items-center justify-center`}
       >
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+        <div className="animate-spin h-8 w-8 border-b-2 border-purple-500 rounded-full"></div>
       </div>
     );
   }
 
-  // Sidebar items
   const sidebarItems =
     role === "interviewer"
       ? [
@@ -165,24 +159,29 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, handleLogout }) => {
 
   return (
     <>
-      {/* SIDEBAR */}
+      {/* SIDEBAR WRAPPER (scrollable) */}
       <div
-        className={`${
-          sidebarCollapsed ? "w-20" : "w-72"
-        } bg-gray-900/95 backdrop-blur-xl border-r border-purple-500/20 transition-all duration-500 min-h-screen fixed left-0 top-16 z-[60] shadow-2xl ${
-          scrolled ? "shadow-purple-500/10" : "shadow-xl"
-        }
-        overflow-y-auto scrollbar-thin scrollbar-thumb-transparent scrollbar-track-transparent`}
+        className={`
+          fixed left-0 top-16 z-[60]
+          ${sidebarCollapsed ? "w-20" : "w-72"}
+          h-[calc(100vh-4rem)] 
+          overflow-y-auto scrollbar-thin scrollbar-thumb-purple-500/30
+          bg-gray-900/95 backdrop-blur-xl
+          border-r border-purple-500/20
+          transition-all duration-500
+          ${scrolled ? "shadow-purple-500/10" : "shadow-xl"}
+        `}
       >
-        <div className="p-4 flex flex-col min-h-full">
+        <div className="p-4 flex flex-col">
+
           {/* USER INFO */}
           {!sidebarCollapsed && user && (
-            <div className="mb-6 p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20 backdrop-blur-lg">
+            <div className="mb-6 p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
               <div className="flex items-center space-x-3 mb-3">
-                <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
+                <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
                   <FaUser className="text-white text-lg" />
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-white truncate">
                     {user.name || "User"}
                   </p>
@@ -191,8 +190,9 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, handleLogout }) => {
                   </p>
                 </div>
               </div>
+
               <div className="flex justify-between items-center">
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-500/30 capitalize">
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-500/30 capitalize">
                   {role}
                 </span>
                 <span className="text-xs text-gray-400">Active</span>
@@ -203,34 +203,36 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, handleLogout }) => {
           {/* COLLAPSED USER ICON */}
           {sidebarCollapsed && user && (
             <div className="mb-6 flex justify-center">
-              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
                 <FaUser className="text-white text-lg" />
               </div>
             </div>
           )}
 
-          {/* TOGGLE BUTTON */}
+          {/* COLLAPSE BUTTON */}
           <button
             onClick={toggleSidebar}
-            className={`w-full flex items-center ${
-              sidebarCollapsed ? "justify-center px-2" : "justify-between px-4"
-            } py-3 text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-300 mb-4 group border border-transparent hover:border-white/10 backdrop-blur-sm`}
+            className={`
+              w-full flex items-center
+              ${sidebarCollapsed ? "justify-center px-2" : "justify-between px-4"}
+              py-3 mb-4 text-gray-300 hover:text-white hover:bg-white/5 rounded-xl
+              border border-transparent hover:border-white/10
+              transition-all duration-300
+            `}
           >
             {!sidebarCollapsed && (
-              <span className="text-sm font-medium text-gray-300">
-                Navigation
-              </span>
+              <span className="text-sm">Navigation</span>
             )}
-            <div className="flex items-center justify-center w-6 h-6 bg-white/5 rounded-lg border border-white/10 group-hover:border-purple-500/30 transition-colors">
+            <div className="w-6 h-6 flex items-center justify-center bg-white/5 border border-white/10 rounded-lg">
               {sidebarCollapsed ? (
-                <FaChevronRight className="text-gray-400 text-xs group-hover:text-purple-400 transition-colors" />
+                <FaChevronRight className="text-gray-400" />
               ) : (
-                <FaChevronLeft className="text-gray-400 text-xs group-hover:text-purple-400 transition-colors" />
+                <FaChevronLeft className="text-gray-400" />
               )}
             </div>
           </button>
 
-          {/* NAV ITEMS */}
+          {/* NAV LINKS */}
           <nav className="space-y-1 flex-1">
             {sidebarItems.map((item) => {
               const active = isActive(item.path);
@@ -238,44 +240,33 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, handleLogout }) => {
                 <button
                   key={item.id}
                   onClick={() => router.push(item.path)}
-                  className={`w-full flex items-center ${
-                    sidebarCollapsed ? "justify-center px-2" : "px-4"
-                  } py-3 text-left rounded-xl transition-all duration-300 group relative backdrop-blur-sm ${
-                    active
-                      ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25 border border-purple-500/30"
-                      : "text-gray-300 hover:text-white hover:bg-white/5 hover:border hover:border-white/10 border border-transparent"
-                  }`}
                   title={sidebarCollapsed ? item.name : ""}
+                  className={`
+                    w-full flex items-center 
+                    ${sidebarCollapsed ? "justify-center px-2" : "px-4"}
+                    py-3 rounded-xl transition-all duration-300
+                    ${
+                      active
+                        ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md border border-purple-500/30"
+                        : "text-gray-300 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10"
+                    }
+                  `}
                 >
                   <span
-                    className={`transition-colors duration-300 ${
+                    className={`${
                       sidebarCollapsed ? "" : "mr-3 w-6 flex justify-center"
-                    } ${
-                      active
-                        ? "text-white"
-                        : "text-gray-400 group-hover:text-purple-400"
-                    }`}
+                    } ${active ? "text-white" : "text-gray-400"}`}
                   >
                     {item.icon}
                   </span>
 
                   {!sidebarCollapsed && (
                     <div className="flex-1 min-w-0">
-                      <span className="font-medium text-sm block truncate">
-                        {item.name}
-                      </span>
-                      <span
-                        className={`text-xs block truncate ${
-                          active ? "text-purple-100" : "text-gray-400"
-                        }`}
-                      >
+                      <span className="block text-sm truncate">{item.name}</span>
+                      <span className="text-xs text-gray-400 truncate">
                         {item.description}
                       </span>
                     </div>
-                  )}
-
-                  {active && !sidebarCollapsed && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full"></div>
                   )}
                 </button>
               );
@@ -286,71 +277,56 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, handleLogout }) => {
           <div className="pt-4 border-t border-purple-500/10 space-y-2">
             <button
               onClick={() => router.push("/dashboard/settings")}
-              className={`w-full flex items-center ${
-                sidebarCollapsed ? "justify-center px-2" : "px-4"
-              } py-3 text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-300 group border border-transparent hover:border-white/10 backdrop-blur-sm`}
+              className={`
+                w-full flex items-center
+                ${sidebarCollapsed ? "justify-center px-2" : "px-4"}
+                py-3 text-gray-300 hover:text-white hover:bg-white/5 rounded-xl
+                border border-transparent hover:border-white/10
+                transition
+              `}
             >
-              <FaCogs
-                className={`text-lg ${
-                  sidebarCollapsed ? "" : "mr-3"
-                } text-gray-400 group-hover:text-purple-400 transition-colors`}
-              />
-              {!sidebarCollapsed && (
-                <span className="font-medium text-sm">Settings</span>
-              )}
+              <FaCogs className={`${sidebarCollapsed ? "" : "mr-3"} text-gray-400`} />
+              {!sidebarCollapsed && <span className="text-sm">Settings</span>}
             </button>
 
             <button
               onClick={handleLogout}
-              className={`w-full flex items-center ${
-                sidebarCollapsed ? "justify-center px-2" : "px-4"
-              } py-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-300 group border border-red-500/20 hover:border-red-500/30 backdrop-blur-sm`}
+              className={`
+                w-full flex items-center
+                ${sidebarCollapsed ? "justify-center px-2" : "px-4"}
+                py-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl
+                border border-red-500/20 hover:border-red-500/30
+                transition
+              `}
             >
-              <FaSignOutAlt
-                className={`text-lg ${
-                  sidebarCollapsed ? "" : "mr-3"
-                } text-red-400 group-hover:text-red-300 transition-colors`}
-              />
-              {!sidebarCollapsed && (
-                <span className="font-medium text-sm">Logout</span>
-              )}
+              <FaSignOutAlt className={`${sidebarCollapsed ? "" : "mr-3"} text-red-400`} />
+              {!sidebarCollapsed && <span className="text-sm">Logout</span>}
             </button>
           </div>
 
           {/* FOOTER */}
           {!sidebarCollapsed && (
-            <div className="mt-4 pt-4 border-t border-purple-500/10">
-              <div className="text-center">
-                <p className="text-gray-400 text-xs mb-3">
-                  &copy; {new Date().getFullYear()} Skill Scanner
-                </p>
-                <div className="flex justify-center space-x-4 text-xs text-gray-500">
-                  <Link
-                    href="/privacy"
-                    className="hover:text-purple-400 transition-colors"
-                  >
-                    Privacy
-                  </Link>
-                  <Link
-                    href="/terms"
-                    className="hover:text-purple-400 transition-colors"
-                  >
-                    Terms
-                  </Link>
-                  <Link
-                    href="/contact"
-                    className="hover:text-purple-400 transition-colors"
-                  >
-                    Contact
-                  </Link>
-                </div>
+            <div className="mt-4 pt-4 border-t border-purple-500/10 text-center">
+              <p className="text-gray-400 text-xs mb-3">
+                &copy; {new Date().getFullYear()} Skill Scanner
+              </p>
+              <div className="flex justify-center space-x-4 text-xs text-gray-500">
+                <Link href="/privacy" className="hover:text-purple-400">
+                  Privacy
+                </Link>
+                <Link href="/terms" className="hover:text-purple-400">
+                  Terms
+                </Link>
+                <Link href="/contact" className="hover:text-purple-400">
+                  Contact
+                </Link>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* MOBILE OVERLAY (fixed) */}
+      {/* OVERLAY FOR MOBILE */}
       {!sidebarCollapsed && (
         <div
           className="lg:hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-[50]"
